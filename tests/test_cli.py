@@ -1,20 +1,10 @@
 import shutil
 from contextlib import closing
 
-import pytest
-
 from rushes.__main__ import main
 from rushes.config import RACINE
-from rushes.models import Habitant, Lieu
+from rushes.models import Evenement, Habitant, Lieu
 from rushes.storage import Storage
-
-
-@pytest.fixture
-def projet(tmp_path, monkeypatch):
-    shutil.copytree(RACINE / "casting", tmp_path / "casting")
-    shutil.copy(RACINE / "config.yaml", tmp_path / "config.yaml")
-    monkeypatch.chdir(tmp_path)
-    return tmp_path
 
 
 def test_init_stats_reset(projet, capsys):
@@ -40,3 +30,21 @@ def test_init_seed_par_defaut(projet):
     assert main(["init"]) == 0
     with closing(Storage(projet / "data" / "rushes.sqlite")) as s:
         assert s.get_meta("seed") == "42"
+
+
+def simuler_dans(dossier, monkeypatch) -> list[tuple]:
+    shutil.copytree(RACINE / "casting", dossier / "casting")
+    shutil.copy(RACINE / "config.yaml", dossier)
+    monkeypatch.chdir(dossier)
+    assert main(["init", "--seed", "3"]) == 0
+    args = ["simulate", "--jours", "2", "--fin", "10:00", "--provider", "mock"]
+    assert main([*args, "--habitants", "lea,ines", "--depart", "cafe"]) == 0
+    with closing(Storage(dossier / "data" / "rushes.sqlite")) as s:
+        assert s.get_meta("prochain_jour") == "3"
+        return [(e.tick, e.type, e.contenu, e.pensee) for e in s.all(Evenement)]
+
+
+def test_simulation_mock_deterministe(tmp_path, monkeypatch):
+    a = simuler_dans(tmp_path / "a", monkeypatch)
+    assert any(type_ == "dialogue" for _, type_, _, _ in a)  # le mock fait parler les habitants
+    assert a == simuler_dans(tmp_path / "b", monkeypatch)  # même seed + mock = mêmes événements

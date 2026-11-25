@@ -191,6 +191,30 @@ class Episode(BaseModel):
     stats: StatsEpisode = StatsEpisode()
 
 
+# --- Sorties des LLM des habitants (§7.2, §14) ---
+
+
+class Decision(BaseModel):
+    pensee: str
+    action: Literal["aller_a", "parler_a", "faire", "observer", "rentrer_dormir"]
+    arguments: dict[str, Any] = {}
+    duree_ticks: int = Field(default=1, ge=1, le=8)
+    importance: Importance
+
+
+class ReponseDialogue(BaseModel):
+    pensee: str
+    replique: str
+    fin: bool = False
+
+
+class ResumeConversation(BaseModel):
+    souvenir: str
+    importance: Importance
+    delta_affinite: int = Field(ge=-20, le=20)
+    secrets_appris: list[str] = []
+
+
 class Intervention(BaseModel):
     id: str
     jour: int = Field(ge=1)

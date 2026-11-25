@@ -1,13 +1,19 @@
 import inspect
 from contextlib import closing
+from types import SimpleNamespace
 
+import httpx
+import openai
 import pytest
 from pydantic import BaseModel
 
 from rushes import models
-from rushes.llm.base import LLMError, LLMProvider
+from rushes.config import RACINE, charger_config
+from rushes.llm import creer_llm
+from rushes.llm.base import LLMError, LLMProvider, extraire_json
 from rushes.llm.budget import Budget, BudgetEpuise
 from rushes.llm.mock import MockProvider
+from rushes.llm.openai_compat import OpenAICompatProvider
 from rushes.llm.ratelimit import RateLimiter
 from rushes.models import Souvenir
 from rushes.storage import Storage
@@ -80,6 +86,60 @@ def test_budget_plafond_dur():
     with pytest.raises(BudgetEpuise):
         llm.complete_json("p", Souvenir)
     assert budget.appels == 2 and budget.tokens > 0
+
+
+def test_extraire_json():
+    assert extraire_json('Voilà :\n```json\n{"a": {"b": 1}}\n```') == '{"a": {"b": 1}}'
+    assert extraire_json("pas de json") == "pas de json"
+
+
+class FauxClient:
+    """Imite `openai.OpenAI().chat.completions.create`."""
+
+    def __init__(self, reponse=None, erreur=None):
+        self.reponse, self.erreur, self.appels = reponse, erreur, []
+        self.chat = SimpleNamespace(completions=SimpleNamespace(create=self.create))
+
+    def create(self, **kwargs):
+        self.appels.append(kwargs)
+        if self.erreur:
+            raise self.erreur
+        return self.reponse
+
+
+def test_openai_compat_texte_et_tokens():
+    reponse = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content="```json\n" + VALIDE + "\n```"))],
+        usage=SimpleNamespace(total_tokens=42),
+    )
+    client = FauxClient(reponse)
+    budget = Budget(10)
+    llm = OpenAICompatProvider(client, "modele-x", budget=budget)
+    assert llm.complete_json("p", Souvenir, temperature=0.3).id == "mem_1"
+    assert client.appels[0]["model"] == "modele-x" and client.appels[0]["temperature"] == 0.3
+    assert budget.tokens == 42
+
+
+def test_openai_compat_quota_429_devient_budget_epuise():
+    requete = httpx.Request("POST", "https://exemple.invalid")
+    erreur = openai.RateLimitError("trop", response=httpx.Response(429, request=requete), body=None)
+    llm = OpenAICompatProvider(FauxClient(erreur=erreur), "modele-x")
+    with pytest.raises(BudgetEpuise, match="429"):
+        llm.complete_json("p", Souvenir)
+
+
+def test_creer_llm(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)  # aucun .env ici
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    config = charger_config(RACINE / "config.yaml")
+    with closing(Storage(tmp_path / "db.sqlite")) as s:
+        assert isinstance(creer_llm(config, s, seed=1), MockProvider)
+        with pytest.raises(LLMError, match="GROQ_API_KEY"):
+            creer_llm(config, s, seed=1, provider="groq")
+        monkeypatch.setenv("GROQ_API_KEY", "cle-de-test")
+        llm = creer_llm(config, s, seed=1, provider="groq")
+        assert isinstance(llm, OpenAICompatProvider) and llm.model == "openai/gpt-oss-20b"
+        assert llm.limiter is not None and llm.budget.max_appels == 400
 
 
 def test_rate_limiter_espace_les_appels():

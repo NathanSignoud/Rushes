@@ -65,9 +65,25 @@ class Storage:
         row = self.conn.execute(f"SELECT data FROM {TABLES[model]} WHERE id = ?", (id,)).fetchone()
         return model.model_validate_json(row[0]) if row else None
 
-    def all(self, model: type[M]) -> list[M]:
-        rows = self.conn.execute(f"SELECT data FROM {TABLES[model]} ORDER BY rowid")
+    def all(self, model: type[M], **egal: str | int) -> list[M]:
+        """Entités d'un type, filtrées par égalité sur des champs (noms fixés par le code)."""
+        where = " AND ".join(f"json_extract(data, '$.{champ}') = ?" for champ in egal)
+        sql = f"SELECT data FROM {TABLES[model]}" + (f" WHERE {where}" if where else "")
+        rows = self.conn.execute(sql + " ORDER BY rowid", tuple(egal.values()))
         return [model.model_validate_json(r[0]) for r in rows]
+
+    def prochain_id(self, model: type[BaseModel], prefixe: str) -> str:
+        (n,) = self.conn.execute(f"SELECT COUNT(*) FROM {TABLES[model]}").fetchone()
+        return f"{prefixe}_{n + 1:06d}"
+
+    def evenements(self, depuis_tick: int = 0, lieu: str | None = None) -> list[Evenement]:
+        sql = "SELECT data FROM evenements WHERE json_extract(data, '$.tick') >= ?"
+        params: list[str | int] = [depuis_tick]
+        if lieu:
+            sql += " AND json_extract(data, '$.lieu') = ?"
+            params.append(lieu)
+        rows = self.conn.execute(sql + " ORDER BY rowid", params)
+        return [Evenement.model_validate_json(r[0]) for r in rows]
 
     def add_event(self, evt: Evenement) -> None:
         self.put(evt)

@@ -2,13 +2,14 @@ seed: 42
 
 llm:
   provider: mock            # mock | gemini | groq
+  # Vérifié le 2026-11-25 dans la doc officielle (voir docs/DECISIONS.md).
   gemini:
-    base_url: "https://generativelanguage.googleapis.com/v1beta/openai/"   # à vérifier (phase 1)
-    model: "A_RENSEIGNER"   # un modèle rapide de l'offre gratuite (phase 1)
+    base_url: "https://generativelanguage.googleapis.com/v1beta/openai/"
+    model: "gemini-3.5-flash-lite"   # limites gratuites : visibles seulement dans AI Studio
     api_key_env: GEMINI_API_KEY
   groq:
-    base_url: "https://api.groq.com/openai/v1"                             # à vérifier (phase 1)
-    model: "A_RENSEIGNER"
+    base_url: "https://api.groq.com/openai/v1"
+    model: "openai/gpt-oss-20b"      # gratuit : 30 req/min, 1K req/jour, 8K tokens/min, 200K tokens/jour
     api_key_env: GROQ_API_KEY
   max_requetes_par_minute: 10
   temperature:

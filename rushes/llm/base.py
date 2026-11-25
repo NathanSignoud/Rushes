@@ -23,6 +23,12 @@ class LLMError(Exception):
     pass
 
 
+def extraire_json(texte: str) -> str:
+    """Les modèles entourent parfois le JSON de texte ou de ```json … ```."""
+    debut, fin = texte.find("{"), texte.rfind("}")
+    return texte[debut : fin + 1] if debut != -1 and fin > debut else texte
+
+
 class LLMProvider:
     def __init__(
         self,
@@ -77,7 +83,7 @@ class LLMProvider:
         texte, tokens, resultat, erreur = "", 0, None, None
         try:
             texte, tokens = self._generate(messages, schema, temperature)
-            resultat = schema.model_validate_json(texte)
+            resultat = schema.model_validate_json(extraire_json(texte))
         except ValidationError as e:
             erreur = e
         finally:  # journalise aussi les erreurs réseau, qui remontent ensuite

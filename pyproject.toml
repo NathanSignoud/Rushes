@@ -3,7 +3,7 @@ name = "rushes"
 version = "0.1.0"
 description = "Une petite ville peuplée d'agents LLM et une salle d'écriture qui en tire une série."
 requires-python = ">=3.11"
-dependencies = ["pydantic>=2.6", "pyyaml>=6"]
+dependencies = ["pydantic>=2.6", "pyyaml>=6", "openai>=1.40", "python-dotenv>=1.0"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]

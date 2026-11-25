@@ -6,7 +6,7 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, Field
 
-from rushes.models import Habitant, Monde
+from rushes.models import Habitant, Heure, Monde
 
 RACINE = Path(__file__).resolve().parent.parent
 PROMPTS_DIR = RACINE / "prompts"
@@ -17,7 +17,7 @@ DATA_DIR = Path("data")
 DB_NAME = "rushes.sqlite"
 
 
-# Les sections sim/memoire/dialogue/show/producteur/web seront typées dans leur phase.
+# Les sections show/producteur/web (et les clés non encore utilisées) seront typées dans leur phase.
 class FournisseurConfig(BaseModel):
     base_url: str
     model: str
@@ -44,10 +44,36 @@ class BudgetConfig(BaseModel):
     max_appels: int = Field(gt=0)
 
 
+class SimConfig(BaseModel):
+    minutes_par_tick: int = Field(gt=0)
+    debut_journee: Heure
+    fin_journee: Heure
+
+
+class PoidsConfig(BaseModel):
+    recence: float
+    importance: float
+    pertinence: float
+
+
+class MemoireConfig(BaseModel):
+    top_k: int = Field(gt=0)
+    decay: float = Field(gt=0, le=1)
+    poids: PoidsConfig
+    pertinence: Literal["tfidf"]  # embeddings : bonus, pas encore codé
+
+
+class DialogueConfig(BaseModel):
+    max_tours: int = Field(ge=1)
+
+
 class Config(BaseModel):
     seed: int
     llm: LLMConfig
     budget: BudgetConfig
+    sim: SimConfig
+    memoire: MemoireConfig
+    dialogue: DialogueConfig
 
 
 def charger_config(path: Path = CONFIG_PATH) -> Config:

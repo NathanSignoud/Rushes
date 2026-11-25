@@ -19,3 +19,25 @@ Chaque fois : l'option la plus simple, notée ici.
 13. **Mock générique** : il parcourt le JSON Schema du modèle demandé et respecte types, bornes, énumérations et `examples` (posés sur les champs à motif : heure, moment, horaires). Il utilise un seul générateur seedé : même seed et même séquence d'appels donnent les mêmes réponses.
 14. **Schémas de sortie LLM** (décision, dialogue, résumé…) : ajoutés à `models.py` dans la phase qui les utilise. La phase 0 couvre le modèle de données du §6.
 15. **`Evenement`** : `importance` vaut 1 par défaut (bornée 1-10), `visibilite` vaut `public` par défaut.
+
+## Phase 1
+
+1. **Fournisseurs vérifiés le 2026-11-25** dans la doc officielle ([Gemini OpenAI](https://ai.google.dev/gemini-api/docs/openai), [modèles Gemini](https://ai.google.dev/gemini-api/docs/models), [limites Gemini](https://ai.google.dev/gemini-api/docs/rate-limits), [Groq OpenAI](https://console.groq.com/docs/openai), [modèles Groq](https://console.groq.com/docs/models), [limites Groq](https://console.groq.com/docs/rate-limits)).
+   - Gemini : `gemini-3.5-flash-lite` (stable, recommandé par Google pour les nouveaux projets). Les limites gratuites par modèle ne sont plus publiées : elles se lisent dans AI Studio.
+   - Groq : `openai/gpt-oss-20b` (production). La table de limites que je déduis être celle de l'offre gratuite donne : 30 req/min, 1K req/jour, 8K tokens/min, 200K tokens/jour. À ~1 200 tokens par appel, 200K tokens/jour ≈ 160 appels : c'est juste pour la cible de la phase 2.
+2. **Pas de `response_format`** : le mode JSON n'est documenté que chez Groq. On extrait le JSON de la réponse (du premier `{` au dernier `}`), puis la validation pydantic et la réparation font le reste. Cela vaut pour tous les fournisseurs.
+3. **Retries** : SDK `openai` avec `max_retries=5` (backoff exponentiel intégré). Un 429 qui persiste devient `BudgetEpuise` : la simulation s'arrête proprement.
+4. **`reasoning_effort` non envoyé** : la réflexion ne se désactive pas sur Gemini 3 et plus, et les valeurs admises varient selon le modèle. On garde le réglage par défaut.
+5. **Options de `simulate`** : `--habitants`, `--depart` et `--fin` permettent le scénario de la phase 1 (Léa et Inès au café le matin) et des essais réels peu coûteux. `--provider` est une option de `simulate` (et des futures commandes qui appellent un LLM).
+6. **Mock et décisions** : le schéma `Decision` passé au LLM porte dans son JSON Schema des exemples de décisions valides ici et maintenant (observer, faire, parler à chaque présent, aller sur la place). Le mock y pioche, ce qui produit des conversations sans réseau. Les vrais fournisseurs ne voient que le prompt.
+7. **Anti-boucle** : une même paire ne peut pas se reparler avant 4 ticks (2 h).
+8. **`faire` occupe déjà l'habitant** pendant `duree_ticks`, sans appel LLM. C'est anticipé de la phase 2, parce que ça économise des appels dès maintenant.
+9. **Souvenirs** : chaque décision (sauf `parler_a`) donne un souvenir `observation` avec l'importance donnée par le LLM. Chaque conversation donne un souvenir `conversation` par participant, issu de son résumé. `mots_cles` = ids du lieu et des présents. Comme les accents sont retirés, la pertinence TF-IDF relie « Inès » à l'id `ines`.
+10. **Plan du jour** : la routine en tient lieu jusqu'à la phase 2.
+11. **Deltas d'affinité et secrets appris** : enregistrés dans la `Conversation`, appliqués en phase 3. Les secrets restent pour l'instant du texte libre.
+12. **Perception** : les événements publics du lieu depuis le tick précédent (8 au plus), et les présents.
+13. **Tick global** : `(jour - 1) × ticks_par_jour + i`, cohérent avec l'exemple du §6.5 (jour 2, 18:30 = tick 55).
+14. **Journée interrompue** (budget atteint ou erreur) : elle compte comme simulée, pour ne pas dupliquer d'événements au prochain lancement.
+15. **Lieux privés** : il n'existe pas encore d'invitation, donc on n'entre que chez soi.
+16. **Témoins** : calculés et logués dans les événements. Leurs souvenirs viendront en phase 2.
+17. **Config** : `memoire.pertinence` n'accepte que `tfidf` (les embeddings sont un bonus). `dialogue.mode` n'est pas lu : seul `tour_par_tour` existe. Le cache (`llm.cache`) est toujours reporté : il est optionnel dans la spec.

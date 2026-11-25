@@ -5,7 +5,11 @@ import shutil
 import sys
 from contextlib import closing
 
-from rushes.config import DATA_DIR, DB_NAME, charger_casting, charger_config
+from rushes.config import DATA_DIR, DB_NAME, SimConfig, charger_casting, charger_config
+from rushes.llm import creer_llm
+from rushes.llm.base import LLMError
+from rushes.llm.budget import BudgetEpuise
+from rushes.sim.engine import simuler
 from rushes.storage import Storage
 
 
@@ -39,6 +43,37 @@ def cmd_reset(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_simulate(args: argparse.Namespace) -> int:
+    db = DATA_DIR / DB_NAME
+    if not db.exists():
+        print("Pas de base : lancez « python -m rushes init ».")
+        return 1
+    config = charger_config()
+    if args.fin:
+        config.sim = SimConfig.model_validate({**config.sim.model_dump(), "fin_journee": args.fin})
+    with closing(Storage(db)) as s:
+        try:
+            llm = creer_llm(config, s, seed=int(s.get_meta("seed") or 0), provider=args.provider)
+            simuler(
+                s,
+                llm,
+                config,
+                args.jours,
+                habitants=args.habitants.split(",") if args.habitants else None,
+                depart=args.depart,
+            )
+        except (LLMError, ValueError) as e:
+            print(f"Erreur : {e}")
+            return 1
+        except BudgetEpuise as e:
+            print(f"Arrêt propre : {e}")
+        print(
+            f"Fin de la simulation (prochain jour : {s.get_meta('prochain_jour')}). "
+            f"Appels LLM : {llm.budget.appels}, tokens : {llm.budget.tokens}."
+        )
+    return 0
+
+
 def cmd_stats(args: argparse.Namespace) -> int:
     db = DATA_DIR / DB_NAME
     if not db.exists():
@@ -65,6 +100,13 @@ def main(argv: list[str] | None = None) -> int:
     p_init = sub.add_parser("init", help="crée la base à partir du casting")
     p_init.add_argument("--seed", type=int, help="surcharge la seed de config.yaml")
     p_init.set_defaults(func=cmd_init)
+    p_sim = sub.add_parser("simulate", help="fait avancer la ville")
+    p_sim.add_argument("--jours", type=int, default=1)
+    p_sim.add_argument("--provider", choices=["mock", "gemini", "groq"], help="surcharge la config")
+    p_sim.add_argument("--habitants", help="ids séparés par des virgules (défaut : tous)")
+    p_sim.add_argument("--depart", help="lieu où tous commencent la journée (défaut : chez soi)")
+    p_sim.add_argument("--fin", help="heure de fin de journée, ex. 12:00 (défaut : config)")
+    p_sim.set_defaults(func=cmd_simulate)
     sub.add_parser("reset", help="efface data/").set_defaults(func=cmd_reset)
     sub.add_parser("stats", help="appels et tokens LLM par tag").set_defaults(func=cmd_stats)
     args = parser.parse_args(argv)
