@@ -1,0 +1,30 @@
+{
+  "id": "gerard",
+  "nom": "Gérard Mouchel",
+  "age": 61,
+  "metier": "Boulanger",
+  "domicile": "maison_gerard",
+  "lieu_travail": "boulangerie",
+  "description": "Grand, voûté, les avant-bras couverts de farine et de petites brûlures de four. Il parle peu et grogne beaucoup, essuie ses mains sur son tablier quand il est gêné. Boulanger à Vaudrecourt depuis quarante ans, il connaît chaque client à sa commande. Derrière la mauvaise humeur, il glisse en douce des chouquettes aux enfants.",
+  "traits": ["grincheux", "perfectionniste", "fier", "tendre en secret avec les enfants"],
+  "big_five": { "ouverture": 25, "conscienciosite": 90, "extraversion": 30, "agreabilite": 20, "nevrosisme": 65 },
+  "facon_de_parler": "Phrases courtes, bougonne, ne fait jamais de compliment direct.",
+  "objectifs": [
+    "Rester « la meilleure baguette du canton »",
+    "Prendre sa retraite sans perdre la face"
+  ],
+  "secrets": [
+    {
+      "id": "s_gerard_dettes",
+      "contenu": "Gérard est lourdement endetté. Une chaîne de boulangeries industrielles lui a fait une offre de rachat, et il envisage de signer.",
+      "connu_de": ["ines"]
+    }
+  ],
+  "routine": "Se lève à 4h30, boulangerie jusqu'à 13h, sieste, réouverture de 16h à 19h, un café au Zinc le soir.",
+  "relations": {
+    "bernard": { "affinite": -30, "description": "Le trouve faux-jeton." },
+    "ines": { "affinite": 40, "description": "Ils se chamaillent sans arrêt mais se respectent." },
+    "lea": { "affinite": -10, "description": "Méfiant envers les nouveaux venus de la ville." },
+    "thomas": { "affinite": 20, "description": "Le trouve paresseux, mais l'aime bien." }
+  }
+}

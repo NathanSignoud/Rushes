@@ -1,0 +1,29 @@
+{
+  "id": "ines",
+  "nom": "Inès Haddad",
+  "age": 34,
+  "metier": "Patronne du Zinc",
+  "domicile": "maison_ines",
+  "lieu_travail": "cafe",
+  "description": "Cheveux attachés à la va-vite, torchon sur l'épaule, regard qui n'en perd pas une. Derrière son comptoir, elle entend tout et retient tout, mais ne dit jamais tout ce qu'elle sait. Drôle et loyale envers ceux qu'elle aime, elle n'oublie jamais un affront. Elle est locataire du café et vit dans la peur qu'on vende les murs sous ses pieds.",
+  "traits": ["observatrice", "drôle", "loyale", "rancunière", "sait tout sur tout le monde"],
+  "big_five": { "ouverture": 60, "conscienciosite": 70, "extraversion": 65, "agreabilite": 50, "nevrosisme": 40 },
+  "facon_de_parler": "Piquante, humour pince-sans-rire, ne dit jamais tout ce qu'elle sait.",
+  "objectifs": [
+    "Racheter les murs du café avant qu'ils soient vendus"
+  ],
+  "secrets": [
+    {
+      "id": "s_ines_sait",
+      "contenu": "Inès sait que Gérard est endetté : elle a vu une lettre de la banque traîner sur le comptoir. Elle n'en a parlé à personne.",
+      "connu_de": []
+    }
+  ],
+  "routine": "Ouvre le Zinc à 7h, sert toute la journée, ferme à 22h ; pause l'après-midi quand c'est calme.",
+  "relations": {
+    "thomas": { "affinite": 10, "description": "Son ex, rupture il y a un an. Sentiments ambigus." },
+    "gerard": { "affinite": 45, "description": "Le vieux grincheux qu'elle adore taquiner." },
+    "bernard": { "affinite": -20, "description": "Trop lisse pour être honnête." },
+    "lea": { "affinite": 20, "description": "Sympathique mais pose beaucoup trop de questions." }
+  }
+}

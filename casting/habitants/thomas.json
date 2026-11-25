@@ -1,0 +1,30 @@
+{
+  "id": "thomas",
+  "nom": "Thomas Kervella",
+  "age": 37,
+  "metier": "Jardinier municipal et musicien",
+  "domicile": "maison_thomas",
+  "lieu_travail": "lavoir",
+  "description": "Barbe de trois jours, bonnet en toutes saisons et un carnet de paroles dans la poche du bleu de travail. Jardinier municipal le jour, musicien qui n'a jamais percé la nuit. Il fuit les conflits en face, mais sa plume est redoutable quand personne ne sait qu'elle est la sienne. Il remet tout au lendemain, sauf ce qui l'indigne.",
+  "traits": ["rêveur", "drôle", "procrastinateur", "idéaliste", "évite les conflits en face"],
+  "big_five": { "ouverture": 90, "conscienciosite": 25, "extraversion": 45, "agreabilite": 65, "nevrosisme": 55 },
+  "facon_de_parler": "Ironique, digresse, cite des chansons.",
+  "objectifs": [
+    "Sauver le lavoir, son coin préféré",
+    "Finir enfin son album"
+  ],
+  "secrets": [
+    {
+      "id": "s_thomas_corbeau",
+      "contenu": "C'est Thomas qui écrit « Le Corbeau de Vaudrecourt ». Il travaille pour la mairie : s'il est découvert, il perd son poste.",
+      "connu_de": []
+    }
+  ],
+  "routine": "Entretien des espaces verts (souvent au lavoir) de 8h à 16h, guitare et écriture le soir.",
+  "relations": {
+    "ines": { "affinite": 50, "description": "N'a jamais tourné la page." },
+    "bernard": { "affinite": -50, "description": "Le maire qu'il caricature chaque semaine." },
+    "lea": { "affinite": 30, "description": "La nouvelle, enthousiaste, plutôt sympa." },
+    "gerard": { "affinite": 25, "description": "Le vieux bougon au grand cœur." }
+  }
+}

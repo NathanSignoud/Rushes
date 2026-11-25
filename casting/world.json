@@ -1,0 +1,94 @@
+{
+  "nom": "Vaudrecourt",
+  "description": "Village d'environ 800 habitants niché dans une vallée. Les élections municipales ont lieu dans trois mois. Chaque semaine, une gazette satirique anonyme, « Le Corbeau de Vaudrecourt », apparaît sur le panneau de la place, et tout le monde la lit en faisant semblant de ne pas la lire.",
+  "lieux": [
+    {
+      "id": "place",
+      "nom": "La place de l'Église",
+      "description": "Place pavée devant l'église, avec un vieux tilleul et le panneau d'affichage où paraît « Le Corbeau ».",
+      "type": "public",
+      "voisins": ["cafe", "boulangerie", "mairie", "ecole", "lavoir"]
+    },
+    {
+      "id": "cafe",
+      "nom": "Le Zinc",
+      "description": "Le café-tabac de la place, cœur des ragots du village. Comptoir en zinc, trois tables en terrasse.",
+      "type": "public",
+      "proprietaire": "ines",
+      "horaires": "07:00-22:00",
+      "voisins": ["place", "boulangerie", "maison_ines"]
+    },
+    {
+      "id": "boulangerie",
+      "nom": "Boulangerie Mouchel",
+      "description": "Petite boulangerie à l'ancienne, odeur de pain chaud, vitrine un peu défraîchie.",
+      "type": "public",
+      "proprietaire": "gerard",
+      "horaires": "06:30-13:00,16:00-19:00",
+      "voisins": ["place", "cafe", "maison_gerard"]
+    },
+    {
+      "id": "mairie",
+      "nom": "La mairie",
+      "description": "Bâtiment en pierre avec drapeau, salle du conseil et salle des fêtes au rez-de-chaussée.",
+      "type": "public",
+      "horaires": "09:00-17:00",
+      "voisins": ["place", "ecole", "maison_bernard"]
+    },
+    {
+      "id": "lavoir",
+      "nom": "Le vieux lavoir",
+      "description": "Lavoir couvert au bord de la rivière, coin tranquille et un peu à l'abandon. Le terrain fait l'objet de convoitises.",
+      "type": "public",
+      "voisins": ["place", "maison_thomas"]
+    },
+    {
+      "id": "ecole",
+      "nom": "L'école",
+      "description": "École communale à classe unique, cour avec un marronnier et des dessins d'enfants aux fenêtres.",
+      "type": "public",
+      "horaires": "08:30-16:30",
+      "voisins": ["place", "mairie", "maison_lea"]
+    },
+    {
+      "id": "maison_gerard",
+      "nom": "Chez Gérard",
+      "description": "Appartement au-dessus du fournil, rangé au millimètre, courrier empilé sur la table.",
+      "type": "prive",
+      "proprietaire": "gerard",
+      "voisins": ["boulangerie"]
+    },
+    {
+      "id": "maison_lea",
+      "nom": "Chez Léa",
+      "description": "Logement de fonction attenant à l'école, encore plein de cartons et d'affiches de films.",
+      "type": "prive",
+      "proprietaire": "lea",
+      "voisins": ["ecole"]
+    },
+    {
+      "id": "maison_bernard",
+      "nom": "Chez Bernard",
+      "description": "Belle maison de maître près de la mairie, salon avec photos de poignées de main officielles.",
+      "type": "prive",
+      "proprietaire": "bernard",
+      "voisins": ["mairie"]
+    },
+    {
+      "id": "maison_ines",
+      "nom": "Chez Inès",
+      "description": "Petit appartement au-dessus du Zinc, d'où l'on entend tout ce qui se dit en terrasse.",
+      "type": "prive",
+      "proprietaire": "ines",
+      "voisins": ["cafe"]
+    },
+    {
+      "id": "maison_thomas",
+      "nom": "Chez Thomas",
+      "description": "Maisonnette en bord de rivière, guitares au mur, vieil ordinateur et imprimante qui grince.",
+      "type": "prive",
+      "proprietaire": "thomas",
+      "voisins": ["lavoir"]
+    }
+  ]
+}

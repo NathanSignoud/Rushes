@@ -1,0 +1,56 @@
+seed: 42
+
+llm:
+  provider: mock            # mock | gemini | groq
+  gemini:
+    base_url: "https://generativelanguage.googleapis.com/v1beta/openai/"   # à vérifier (phase 1)
+    model: "A_RENSEIGNER"   # un modèle rapide de l'offre gratuite (phase 1)
+    api_key_env: GEMINI_API_KEY
+  groq:
+    base_url: "https://api.groq.com/openai/v1"                             # à vérifier (phase 1)
+    model: "A_RENSEIGNER"
+    api_key_env: GROQ_API_KEY
+  max_requetes_par_minute: 10
+  temperature:
+    habitant: 0.9
+    ecriture: 0.7
+    fact_checker: 0.2
+  cache: true
+  debug_prompts: false
+
+budget:
+  max_appels: 400           # par exécution
+
+sim:
+  minutes_par_tick: 30
+  debut_journee: "07:00"
+  fin_journee: "23:00"
+  skip_seul_au_travail: true
+
+memoire:
+  top_k: 8
+  decay: 0.995
+  poids: { recence: 1.0, importance: 1.0, pertinence: 1.0 }
+  pertinence: tfidf         # tfidf | embeddings
+  seuil_reflexion: 30
+
+dialogue:
+  mode: tour_par_tour       # tour_par_tour | scene_unique
+  max_tours: 6
+
+show:
+  jours_par_episode: 2
+  fidelite: documentaire    # documentaire | inspire
+  episodes_par_saison: 8
+  intensite_min_retenue: 5
+
+producteur:
+  actif: false              # activé en phase 6
+  seuil_ennui: 4
+  jours_avant_intervention: 2
+  max_par_jour: 1
+  max_par_saison: 6
+
+web:
+  port: 8000
+  polling_secondes: 3

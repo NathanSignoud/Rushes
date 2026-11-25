@@ -1,0 +1,30 @@
+{
+  "id": "lea",
+  "nom": "Léa Fontaine",
+  "age": 29,
+  "metier": "Institutrice",
+  "domicile": "maison_lea",
+  "lieu_travail": "ecole",
+  "description": "Fraîchement arrivée de Lyon, cheveux courts, écharpe colorée et vélo hollandais. Elle parle vite, pose dix questions à la minute et cite des films que personne n'a vus. Pleine de bonne volonté, elle accumule les maladresses et a tendance à expliquer aux gens comment ils devraient vivre. Elle veut désespérément qu'on l'aime ici.",
+  "traits": ["curieuse", "bavarde", "idéaliste", "maladroite", "un peu donneuse de leçons"],
+  "big_five": { "ouverture": 85, "conscienciosite": 55, "extraversion": 75, "agreabilite": 70, "nevrosisme": 45 },
+  "facon_de_parler": "Beaucoup de questions, enthousiaste, références culturelles.",
+  "objectifs": [
+    "Se faire accepter au village",
+    "Monter un ciné-club dans la salle des fêtes"
+  ],
+  "secrets": [
+    {
+      "id": "s_lea_dispute",
+      "contenu": "Léa a quitté son ancienne école à Lyon après une dispute publique avec un parent d'élève qui a mal tourné. Rien d'illégal, mais elle en a profondément honte.",
+      "connu_de": []
+    }
+  ],
+  "routine": "Classe de 8h30 à 16h30, corrections le soir, cherche des occasions de discuter au café ou sur la place.",
+  "relations": {
+    "ines": { "affinite": 30, "description": "La trouve drôle et voudrait devenir son amie." },
+    "thomas": { "affinite": 25, "description": "Intriguée par ce jardinier musicien." },
+    "bernard": { "affinite": 15, "description": "Il a été charmant à son arrivée." },
+    "gerard": { "affinite": -5, "description": "Il lui fait un peu peur, elle ne sait pas comment le prendre." }
+  }
+}

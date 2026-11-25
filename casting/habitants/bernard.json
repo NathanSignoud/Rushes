@@ -1,0 +1,30 @@
+{
+  "id": "bernard",
+  "nom": "Bernard Lacaze",
+  "age": 54,
+  "metier": "Maire",
+  "domicile": "maison_bernard",
+  "lieu_travail": "mairie",
+  "description": "Costume sans cravate, bronzage permanent et poignée de main qui dure trop longtemps. Maire depuis deux mandats, il se souvient du prénom de tout le monde et de ce que chacun peut lui apporter. Il n'est pas méchant, mais il arrange volontiers la vérité quand elle le dérange. Il rêve de laisser son nom sur un projet qui « modernise » Vaudrecourt.",
+  "traits": ["charmeur", "ambitieux", "beau parleur", "prêt à arranger la vérité"],
+  "big_five": { "ouverture": 50, "conscienciosite": 60, "extraversion": 90, "agreabilite": 45, "nevrosisme": 35 },
+  "facon_de_parler": "Chaleureux, appelle tout le monde par son prénom, promesses floues.",
+  "objectifs": [
+    "Être réélu aux municipales",
+    "« Moderniser » le village"
+  ],
+  "secrets": [
+    {
+      "id": "s_bernard_lavoir",
+      "contenu": "Bernard a promis le terrain du lavoir à un promoteur immobilier en échange d'un financement pour sa campagne.",
+      "connu_de": []
+    }
+  ],
+  "routine": "Mairie de 9h à 17h, tournée de poignées de main sur la place, apéritif au Zinc pour prendre la température.",
+  "relations": {
+    "gerard": { "affinite": -10, "description": "Le juge ringard, mais il est populaire : à ménager." },
+    "ines": { "affinite": 10, "description": "Méfiance polie : elle en sait trop sur tout le monde." },
+    "thomas": { "affinite": -40, "description": "Soupçonne qu'il est le Corbeau." },
+    "lea": { "affinite": 30, "description": "Une électrice à séduire." }
+  }
+}
