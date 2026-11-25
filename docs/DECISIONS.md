@@ -41,3 +41,19 @@ Chaque fois : l'option la plus simple, notée ici.
 15. **Lieux privés** : il n'existe pas encore d'invitation, donc on n'entre que chez soi.
 16. **Témoins** : calculés et logués dans les événements. Leurs souvenirs viendront en phase 2.
 17. **Config** : `memoire.pertinence` n'accepte que `tfidf` (les embeddings sont un bonus). `dialogue.mode` n'est pas lu : seul `tour_par_tour` existe. Le cache (`llm.cache`) est toujours reporté : il est optionnel dans la spec.
+
+## Machine unique et voix (décidé le 2026-11-25, entre les phases 1 et 2)
+
+1. **Feuille de route** : 5 premier épisode, 6 voix et audio (absorbe l'ancienne phase 7 « fiction audio »), 7 producteur, 8 vidéo. Les phases 1 à 5 ne changent pas.
+2. **Nouvelles sections à la fin de SPEC.md** (§19 voix et audio, §20 machine et déploiement) plutôt qu'une renumérotation, pour que les références `§7.2`, `§9`, etc. du code et de ce fichier restent valables.
+3. **Champ `voix` des fiches** : `moteur` (facultatif, `null` = celui de la config), `ids` (un identifiant par moteur léger), `reference` (extrait pour le clonage), `vitesse`, `hauteur`. Un id par moteur permet de changer de moteur dans la config sans retoucher les fiches. Ordre de choix du moteur : `--moteur`, puis la fiche, puis la config.
+4. **Moteur léger par défaut : piper**. Il a 6 voix fr_FR, contre une seule pour kokoro (`ff_siwis`, féminine). Avec kokoro, les personnages ne se distinguent que par la vitesse et la hauteur. Une table d'intentions de voix (§19.3) sert de point de départ dans les deux cas.
+5. **Choix du moteur de clonage reporté à l'étape 0 de la phase 6** : banc d'essai sur la machine cible avant toute intégration. Ces modèles évoluent vite et exigent des téléchargements de plusieurs Go.
+6. **Clé du cache audio** : moteur + voix résolue + **émotion** + texte. L'émotion modifie la vitesse et la hauteur, donc le fichier produit : elle doit faire partie de la clé.
+7. **Hauteur** : appliquée après coup par ffmpeg (`asetrate`, `aresample`, `atempo`), car piper et kokoro ne gèrent que la vitesse.
+8. **Phrase du narrateur à chaque changement de scène** : construite à partir du lieu et du moment, sans appel LLM. C'est gratuit et déterministe.
+9. **Verrou** `data/rushes.lock` pris par toutes les commandes lourdes (`simulate`, `episode`, `run`, `audio`), quel que soit le moteur : une seule à la fois. La règle est plus simple qu'un verrou réservé au clonage, et elle évite aussi les écritures SQLite concurrentes. Un verrou laissé par un processus mort est ignoré. Codé en phase 6.
+10. **Scripts en `.bat`** : double-clic possible, aucun souci de politique d'exécution PowerShell. Les fins de ligne doivent être CRLF, d'où le `.gitattributes`. Une étape pas encore disponible est sautée : les scripts servent dès maintenant et n'auront pas à être modifiés.
+11. **Serveur** : écoute `127.0.0.1` par défaut, `0.0.0.0` seulement via `scripts\serveur.bat`. Il n'a pas d'authentification : à réserver au réseau de la maison.
+12. **`--provider`** : la spec dit désormais « sur chaque commande qui appelle un LLM », ce qui correspond au code (phase 1).
+13. **Python** : le cœur tourne en 3.13, mais `kokoro` 0.9.4 exige Python < 3.13. Pour l'utiliser : un venv en 3.12, ou WSL2. `piper-tts` 1.8.0 et `coqui-tts` 0.28 acceptent Python 3.13.

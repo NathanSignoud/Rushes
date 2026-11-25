@@ -46,7 +46,7 @@ show:
   intensite_min_retenue: 5
 
 producteur:
-  actif: false              # activé en phase 6
+  actif: false              # activé en phase 7
   seuil_ennui: 4
   jours_avant_intervention: 2
   max_par_jour: 1

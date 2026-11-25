@@ -40,6 +40,10 @@ Résultat attendu : une page web « Saison 1 » avec des épisodes générés à
 - **LLM via API gratuite** (offre gratuite Gemini ou Groq), derrière une couche d'abstraction. Un **fournisseur factice (mock)** permet de tout tester sans réseau ni quota.
 - Respect des **limites de débit** : rate limiter, retries, budget d'appels par exécution.
 - Clés API dans `.env` uniquement, jamais commitées.
+- **Une seule machine** : tout tourne sur un PC fixe Windows (i5-9400 6 cœurs, 8 Go de RAM, GTX 1050 2 Go, SSD 512 Go). Détails et déploiement au §20.
+- **Aucun LLM local** : les LLM passent par API. Le cœur du projet reste léger. La synthèse vocale locale est optionnelle (extras `tts-light` et `tts-clone`) et tourne sur CPU par défaut (§19).
+- **Windows d'abord, Linux compatible** : chemins via `pathlib`, ffmpeg appelé depuis le PATH, aucun appel propre à un OS dans le code. WSL2 en plan B si une bibliothèque pose problème sous Windows.
+- **Mémoire vive** : un modèle de clonage de voix ne tourne jamais en même temps que la simulation (verrou, §19.7).
 
 ---
 
@@ -55,8 +59,8 @@ Résultat attendu : une page web « Saison 1 » avec des épisodes générés à
 | Web | FastAPI + uvicorn + Jinja2, JS vanilla (pas de build front) |
 | Tests | pytest |
 | Qualité | ruff (lint + format) |
-| Audio (phase 7) | TTS local léger (ex. Piper, voix FR) — à valider le moment venu |
-| Montage (phase 8) | ffmpeg |
+| Voix (phase 6) | `rushes/tts/` : moteurs interchangeables mock, piper, kokoro, clone (§19), en dépendances optionnelles |
+| Assemblage audio (phase 6), montage vidéo (phase 8) | ffmpeg, appelé depuis le PATH |
 
 ---
 
@@ -86,10 +90,16 @@ Résultat attendu : une page web « Saison 1 » avec des épisodes générés à
                    │  6. Producteur  → interventions dans la ville
                    └───────────────┬────────────────────────────┘
                                    ▼
-                   Épisodes (JSON + Markdown) → Web / Audio / Vidéo
+                   Épisodes (JSON + Markdown)
+                                   │
+                                   ▼
+                   Voix (rushes/tts/) + assemblage ffmpeg → mp3 + timings
+                                   │
+                                   ▼
+                              Web / Vidéo
 ```
 
-Toute communication avec un LLM passe par `rushes/llm/` (aucun appel direct ailleurs).
+Toute communication avec un LLM passe par `rushes/llm/` (aucun appel direct ailleurs). De même, toute synthèse vocale passe par `rushes/tts/`.
 
 ---
 
@@ -106,7 +116,8 @@ rushes/
 ├── pyproject.toml
 ├── casting/
 │   ├── world.json             # ville + lieux
-│   └── habitants/*.json       # une fiche par habitant
+│   ├── habitants/*.json       # une fiche par habitant
+│   └── voix/                  # extraits de référence pour le clonage + README.md (origine, licence)
 ├── prompts/                   # templates en .md avec {placeholders}
 │   ├── habitant_plan_jour.md
 │   ├── habitant_decision.md
@@ -147,18 +158,29 @@ rushes/
 │   │   ├── fact_checker.py
 │   │   ├── producteur.py
 │   │   └── export.py          # épisode → Markdown
-│   ├── media/                 # phases 7-8
-│   │   ├── tts.py
-│   │   └── video.py
+│   ├── tts/                   # phase 6 : synthèse vocale (§19)
+│   │   ├── base.py            # interface commune : synthesize(texte, voix, emotion) -> wav
+│   │   ├── mock.py            # silence proportionnel au texte (tests)
+│   │   ├── piper.py
+│   │   ├── kokoro.py
+│   │   └── clone.py           # moteur de clonage retenu en phase 6
+│   ├── media/
+│   │   ├── audio.py           # phase 6 : pistes en cache, narrateur, timings, assemblage ffmpeg
+│   │   └── video.py           # phase 8
 │   └── web/
 │       ├── app.py
 │       ├── templates/
 │       └── static/
 ├── tests/
+├── scripts/                   # lancement sous Windows (§20)
+│   ├── nuit.bat               # simulation + épisodes + audio
+│   └── serveur.bat            # interface web sur le réseau local
 ├── data/                      # généré, ignoré par git
 │   ├── rushes.sqlite
+│   ├── rushes.lock            # verrou mémoire (§19.7)
 │   ├── events.jsonl
-│   └── episodes/
+│   ├── audio/cache/           # une piste wav par réplique (§19.6)
+│   └── episodes/              # epNN.json, epNN.md, epNN.mp3, epNN.timings.json
 └── docs/
     └── DECISIONS.md
 ```
@@ -209,10 +231,18 @@ Pas de grille ni de pathfinding : se déplacer d'un lieu à un autre prend 1 tic
   "routine": "Se lève à 4h30, boulangerie jusqu'à 13h, sieste, café le soir.",
   "relations": {
     "bernard": { "affinite": -30, "description": "Le trouve faux-jeton." }
+  },
+  "voix": {
+    "moteur": null,
+    "ids": { "piper": "fr_FR-gilles-low", "kokoro": "ff_siwis" },
+    "reference": "casting/voix/gerard.wav",
+    "vitesse": 0.90,
+    "hauteur": -3
   }
 }
 ```
 - `affinite` va de -100 à +100 et évolue après chaque interaction (§7.6).
+- `voix` (phase 6, §19.3) : `moteur` force un moteur pour ce personnage (`null` = celui de la config ou de `--moteur`). `ids` donne l'identifiant de voix par moteur léger, `reference` l'extrait pour le moteur de clonage. `vitesse` est un multiplicateur (0.5 à 2.0), `hauteur` un décalage en demi-tons (-12 à +12). Les valeurs ci-dessus sont des exemples, à choisir en phase 6.
 - `connu_de` : la liste des habitants qui connaissent ce secret. Elle est mise à jour quand un secret est révélé dans une conversation (détecté lors du résumé de conversation, §7.5).
 
 ### 6.4 Souvenir (mémoire)
@@ -292,7 +322,7 @@ Tout ce qui se passe est un événement. C'est **la matière première du showru
       "intention": "Présenter Léa comme une étrangère curieuse.",
       "didascalies": "...",
       "repliques": [
-        { "perso": "ines", "texte": "...", "sources": ["evt_000012"] }
+        { "perso": "ines", "texte": "...", "sources": ["evt_000012"], "emotion": "content" }
       ],
       "fidelite": "fidele"     // fidele | embelli | invente (rempli par le fact-checker)
     }
@@ -300,9 +330,12 @@ Tout ce qui se passe est un événement. C'est **la matière première du showru
   "cliffhanger": "...",
   "arcs": ["arc_001", "arc_003"],
   "interventions_utilisees": [],
-  "stats": { "appels_llm": 0, "tokens": 0 }
+  "stats": { "appels_llm": 0, "tokens": 0 },
+  "audio": { "mp3": "ep01.mp3", "timings": "ep01.timings.json", "moteur": "piper" }
 }
 ```
+- `emotion` de chaque réplique : `neutre | content | fache | triste | surpris | gene`, remplie par le scénariste (§8.3). Défaut : `neutre`.
+- `audio` vaut `null` tant que la piste n'a pas été générée (phase 6, §19.6).
 
 ### 6.9 Intervention (producteur)
 `id`, `jour`, `heure`, `type`, `cible(s)`, `contenu`, `objectif_narratif` (pourquoi le producteur la fait), `arc_vise`, `resultat` (rempli après coup : ce qui s'est réellement passé).
@@ -413,7 +446,7 @@ Elle se lance par la commande `rushes episode` ou automatiquement tous les `show
 
 ### 8.3 Scénariste
 - **Entrée** : le plan d'épisode, les événements retenus avec leurs dialogues réels, les fiches des personnages (façon de parler).
-- **Sortie** : 4 à 8 scènes au format §6.8. Chaque réplique cite ses `sources` (event_ids).
+- **Sortie** : 4 à 8 scènes au format §6.8. Chaque réplique cite ses `sources` (event_ids) et porte une `emotion` (le ton de la réplique, déduit des événements et des pensées), utilisée par la voix (§19.4) et plus tard par les avatars.
 - **Mode** (config `show.fidelite`) :
   - `documentaire` : uniquement ce qui s'est passé ; les répliques peuvent être resserrées mais pas inventées ;
   - `inspire` : le scénariste peut condenser, déplacer et embellir, mais le fact-checker le signale.
@@ -492,10 +525,12 @@ FastAPI + Jinja2 + JS vanilla, légère (doit tourner sur le vieux portable). Ra
 | `/` **La ville** | Carte SVG simple avec les lieux en blocs et les habitants en pastilles (initiales + couleur). Heure simulée, derniers événements publics en fil. |
 | `/habitant/{id}` | Fiche, lieu actuel, plan du jour, dernières pensées, réflexions, relations (barres d'affinité), secrets (marqués connus/inconnus). |
 | `/saison` | Liste des épisodes : numéro, titre, résumé, arcs. |
-| `/episode/{n}` | Le script mis en forme. Les répliques sont cliquables pour voir les événements sources. Badge de fidélité par scène. Lecteur audio quand il existe (phase 7). |
+| `/episode/{n}` | Le script mis en forme : chaque personnage est une pastille de couleur avec ses initiales. Les répliques sont cliquables pour voir les événements sources. Badge de fidélité par scène. À partir de la phase 6 : lecteur audio, réplique en cours mise en évidence et défilement synchronisé grâce aux timings (§19.8). |
 | `/coulisses` | Interventions du producteur avec objectif et résultat, arcs et courbe de tension, logs bruts filtrables (lieu, habitant, type, tag), statistiques d'appels LLM. |
 
-API JSON associée : `/api/etat`, `/api/evenements?depuis=`, `/api/habitants/{id}`, `/api/episodes`, `/api/episodes/{n}`, `/api/arcs`, `/api/stats`.
+API JSON associée : `/api/etat`, `/api/evenements?depuis=`, `/api/habitants/{id}`, `/api/episodes`, `/api/episodes/{n}`, `/api/arcs`, `/api/stats`. Les fichiers audio sont servis sous `/media/epNN.mp3` et `/media/epNN.timings.json`.
+
+Par défaut le serveur n'écoute que la machine locale (`127.0.0.1`). `scripts/serveur.bat` l'ouvre au réseau local pour un téléphone sur le même Wi-Fi (§20.3).
 
 ---
 
@@ -506,11 +541,12 @@ python -m rushes init [--seed 42]          # crée la base à partir du casting
 python -m rushes simulate --jours 2        # fait avancer la ville
 python -m rushes episode                   # lance la salle d'écriture sur les jours non couverts
 python -m rushes run --jours 6             # simulate + episode en alternance (mode nuit)
-python -m rushes serve [--port 8000]       # interface web
+python -m rushes audio --episode N [--moteur mock|piper|kokoro|clone]   # voix de l'épisode (phase 6)
+python -m rushes serve [--host 0.0.0.0] [--port 8000]                    # interface web
 python -m rushes stats                     # appels, tokens, coût estimé par tag
 python -m rushes reset                     # efface data/
 ```
-Option globale `--provider mock|gemini|groq` qui surcharge la config.
+Option `--provider mock|gemini|groq` qui surcharge la config, sur chaque commande qui appelle un LLM.
 
 ---
 
@@ -539,18 +575,23 @@ Pages `/`, `/habitant/{id}`, `/coulisses` (logs + stats).
 **Critère** : on suit la simulation en direct dans le navigateur.
 
 ### Phase 5 — Premier épisode
-Dérusheur, showrunner, scénariste, monteur, fact-checker, export JSON/Markdown, pages `/saison` et `/episode/{n}`.
+Dérusheur, showrunner, scénariste, monteur, fact-checker, export JSON/Markdown, pages `/saison` et `/episode/{n}`. Chaque réplique porte une `emotion`.
 **Critère** : `rushes run --jours 4` produit 2 épisodes lisibles, avec cold open et cliffhanger, et des répliques reliées à leurs sources.
 
-### Phase 6 — Le producteur
+### Phase 6 — Voix et audio
+0. **Banc d'essai du moteur de clonage, avant toute intégration** : XTTS-v2 (fork idiap de coqui-tts), OmniVoice, Qwen3-TTS. On teste sur la machine cible (Windows, CPU, 8 Go de RAM) l'installation, la mémoire, le temps par réplique et la qualité en français. Proposition argumentée, puis validation.
+1. `rushes/tts/` : interface commune, moteurs mock, piper et kokoro, puis le moteur de clonage retenu. Extras `tts-light` et `tts-clone`.
+2. Champ `voix` des fiches, voix du narrateur dans la config, extraits de référence dans `casting/voix/`.
+3. Pipeline d'épisode : pistes en cache, narrateur, assemblage ffmpeg, mp3 + timings, verrou mémoire.
+4. Page épisode : pastilles, lecteur audio, réplique en cours synchronisée.
+**Critère** : `rushes audio --episode 1 --moteur piper` produit `ep01.mp3` et `ep01.timings.json`. Une seconde exécution ne synthétise aucune piste (cache). La page `/episode/1` lit l'audio et suit la réplique en cours. Toute la suite passe avec le moteur mock, sans réseau ni modèle.
+
+### Phase 7 — Le producteur
 Outils d'intervention, déclenchement par l'ennui, garde-fous, page Coulisses enrichie.
 **Critère** : sur une saison de 6 épisodes, au moins une intervention a visiblement relancé un arc.
 
-### Phase 7 — Fiction audio
-Voix TTS par personnage + narrateur, assemblage ffmpeg, lecteur sur la page de l'épisode.
-
 ### Phase 8 — Épisode vidéo
-Images par scène (avatars + fonds de lieux simples, ou API d'images), cartons-titres, voix, musique libre de droits, montage ffmpeg en épisode de ~2 minutes.
+Images par scène (avatars avec expressions selon l'`emotion` + fonds de lieux simples, ou API d'images), cartons-titres, voix et timings de la phase 6, musique libre de droits, montage ffmpeg en épisode de ~2 minutes.
 
 ### Bonus
 - Mesure de la dérive de personnalité (évaluer le Big Five observé vs fiche, au fil des jours).
@@ -687,7 +728,9 @@ Mode de fidélité : {fidelite}
 - inspire : tu peux condenser et embellir, mais chaque réplique cite ses sources.
 
 4 à 8 scènes. Didascalies brèves et visuelles. Chaque réplique a un champ "sources"
-(ids d'événements). Les pensées privées peuvent devenir des apartés face caméra.
+(ids d'événements) et un champ "emotion" parmi : neutre, content, fache, triste, surpris,
+gene (le ton de la réplique, d'après les événements et les pensées ; "neutre" si rien ne
+ressort). Les pensées privées peuvent devenir des apartés face caméra.
 
 JSON selon le schéma : {schema}
 ```
@@ -833,13 +876,37 @@ show:
   intensite_min_retenue: 5
 
 producteur:
-  actif: false              # activé en phase 6
+  actif: false              # activé en phase 7
   seuil_ennui: 4
   jours_avant_intervention: 2
   max_par_jour: 1
   max_par_saison: 6
 
+tts:                        # phase 6 (§19)
+  moteur: mock              # mock | piper | kokoro | clone
+  appareil: cpu             # cpu | cuda (cuda seulement si le modèle tient dans les 2 Go de VRAM)
+  narrateur:                # même structure que le champ "voix" des fiches
+    moteur: null
+    ids: { piper: "A_CHOISIR", kokoro: "ff_siwis" }
+    reference: null
+    vitesse: 1.0
+    hauteur: 0
+  emotions:                 # moteurs légers : multiplicateur de vitesse, décalage en demi-tons
+    neutre:  { vitesse: 1.00, hauteur: 0 }
+    content: { vitesse: 1.06, hauteur: 1 }
+    fache:   { vitesse: 1.10, hauteur: -1 }
+    triste:  { vitesse: 0.88, hauteur: -1 }
+    surpris: { vitesse: 1.05, hauteur: 2 }
+    gene:    { vitesse: 0.94, hauteur: 0 }
+
+audio:                      # phase 6 (§19.6)
+  silence_repliques_ms: 300
+  silence_scenes_ms: 800
+  musique: null             # fichier libre de droits, en fond à faible volume
+  volume_musique: 0.08
+
 web:
+  host: "127.0.0.1"         # 0.0.0.0 pour le réseau local (scripts/serveur.bat)
   port: 8000
   polling_secondes: 3
 ```
@@ -852,6 +919,7 @@ web:
 - **Intégration (mock)** : `init` → `simulate --jours 1` → `episode` produit un épisode valide selon le schéma.
 - **Déterminisme** : même seed + mock = mêmes événements.
 - **Réel (manuel)** : un script `scripts/smoke_test.sh` lance une demi-journée avec le vrai fournisseur et affiche les stats.
+- **Voix (moteur mock)** : toute la suite passe sans réseau ni téléchargement de modèle. On teste le cache des pistes (aucune resynthèse), le calcul des timings et l'assemblage. ffmpeg est simulé s'il est absent de la machine.
 - `ruff check` et `ruff format` sans erreur avant chaque commit.
 
 ---
@@ -869,3 +937,124 @@ web:
 | Scénariste qui invente | Sources obligatoires par réplique + fact-checker + mode documentaire. |
 | Soupe dramatique | Le dérusheur est exigeant ; le showrunner alterne le rythme. |
 | Producteur trop interventionniste | Seuils d'ennui, quotas, justification obligatoire, résultats mesurés. |
+| RAM saturée par le modèle de voix | Verrou : jamais en même temps que la simulation ; génération par lots ; modèle libéré en fin de lot. |
+| Voix trop semblables (peu de voix FR) | Vitesse et hauteur par personnage, plus la modulation par émotion. |
+| Régénérer l'audio coûte cher | Cache par piste (hash du moteur, de la voix, de l'émotion et du texte). |
+| Voix d'une vraie personne sans accord | Extraits uniquement avec consentement ou sous licence libre, origine notée dans `casting/voix/README.md`. |
+
+---
+
+## 19. Voix et audio (phase 6)
+
+### 19.1 Principe
+Même principe que la couche LLM : toute synthèse vocale passe par `rushes/tts/`, derrière une interface commune. Les moteurs sont interchangeables via `tts.moteur` dans la config, ou `--moteur` en ligne de commande.
+
+```python
+class TTSEngine(Protocol):
+    def synthesize(self, texte: str, voix: Voix, emotion: Emotion) -> Path: ...  # un fichier wav
+    def liberer(self) -> None: ...  # décharge le modèle en fin de lot
+```
+- Génération **par lots, hors ligne**, jamais pendant la simulation pour un modèle lourd. `liberer()` est appelé en fin de lot.
+- **CPU par défaut** (`tts.appareil: cpu`). La GPU (GTX 1050, 2 Go de VRAM) n'est utilisée que si le modèle y tient.
+- Dépendances optionnelles : `pip install -e ".[tts-light]"` (piper, kokoro) et `".[tts-clone]"` (le moteur retenu à l'étape 0 de la phase 6). Le cœur du projet n'en dépend pas.
+
+### 19.2 Moteurs
+Faits vérifiés le 2026-11-25 sur les pages officielles (PyPI, Hugging Face) :
+
+| Moteur | Rôle | Voix françaises | Contraintes |
+|---|---|---|---|
+| `mock` | tests | — | silence de durée proportionnelle au texte (module `wave` de la stdlib), aucun modèle, aucun réseau |
+| `piper` | léger, CPU | **6 voix fr_FR** : `gilles`, `mls`, `mls_1840`, `siwis`, `tom`, `upmc` (qualités low/medium ; genre et nombre de locuteurs à lire sur la fiche de chaque modèle) | `piper-tts` 1.8.0, roues Windows, Python ≥ 3.9, licence GPL-3.0 |
+| `kokoro` | léger, CPU | **1 seule** : `ff_siwis` (féminine, note B-) | `kokoro` 0.9.4 exige **Python < 3.13** ; espeak-ng requis pour le français ; Apache-2.0 |
+| `clone` | clonage depuis un extrait | celle de l'extrait | candidats : XTTS-v2 (`coqui-tts` 0.28, Python 3.10-3.14, PyTorch à installer à part, poids non commerciaux, acceptable pour un projet perso), OmniVoice, Qwen3-TTS. Choix à l'étape 0 de la phase 6 |
+
+Conséquences :
+- **Piper est le moteur léger par défaut** : c'est le seul à offrir plusieurs voix françaises.
+- Avec kokoro, tous les personnages partagent `ff_siwis` : la vitesse et la hauteur sont la seule différence possible, et une voix féminine baissée pour un homme sonne artificielle.
+
+### 19.3 Voix des personnages
+- Chaque fiche a un champ `voix` (§6.3). La voix du narrateur est dans la config (`tts.narrateur`, même structure).
+- Choix du moteur : `--moteur` d'abord, puis `voix.moteur` de la fiche, puis `tts.moteur`.
+- Choix de la voix : `voix.ids[moteur]` pour un moteur léger, `voix.reference` pour le clonage. Si rien n'est défini pour ce moteur, on prend sa voix par défaut avec la vitesse et la hauteur de la fiche.
+- S'il n'y a pas assez de voix françaises distinctes, la vitesse et la hauteur différencient les personnages. Intentions de départ :
+
+| Personnage | Intention | vitesse | hauteur |
+|---|---|---|---|
+| Gérard | grave, lent, bougon | 0.90 | -3 |
+| Léa | vive, rapide | 1.12 | +2 |
+| Bernard | chaleureux, ample | 0.97 | -1 |
+| Inès | sèche, pince-sans-rire | 1.00 | 0 |
+| Thomas | nonchalant, traînant | 0.93 | -2 |
+| Narrateur | neutre, clair (voix distincte de tous) | 1.00 | 0 |
+
+- La vitesse est passée au moteur quand il la gère (piper : `length_scale`, kokoro : `speed`), sinon via ffmpeg `atempo`. La hauteur est appliquée après coup avec ffmpeg (`asetrate` + `aresample` + `atempo`, durée conservée).
+
+### 19.4 Émotions
+- Chaque réplique porte une `emotion` (`neutre | content | fache | triste | surpris | gene`), remplie par le scénariste (§8.3).
+- Moteurs légers : la table `tts.emotions` de la config module la voix. La vitesse est multipliée, la hauteur est additionnée.
+- Moteur qui sait gérer le style (selon le moteur de clonage retenu) : l'émotion lui est passée directement.
+
+### 19.5 Extraits de référence (clonage)
+- `casting/voix/<id>.wav` : 5 à 15 secondes, mono, sans bruit de fond.
+- `casting/voix/README.md` indique pour chaque extrait l'origine, l'auteur, la licence ou le consentement, et la date.
+- **Uniquement** des voix enregistrées avec le consentement de la personne (soi-même, des proches d'accord) ou sous licence libre. **Jamais de voix de personne connue.**
+
+### 19.6 Pipeline audio d'un épisode
+`python -m rushes audio --episode N [--moteur ...]` :
+1. **Segments**, dans l'ordre :
+   - le narrateur lit le « précédemment » (si épisode > 1) ;
+   - le cold open ;
+   - le narrateur lit le titre ;
+   - pour chaque scène, une phrase courte du narrateur au changement de scène, construite à partir du lieu et du moment, sans appel LLM (« Le Zinc, jour 2, huit heures. »), puis les répliques.
+2. **Une piste wav par segment, en cache** : `data/audio/cache/<sha256>.wav`. La clé combine le moteur, la voix résolue (id ou empreinte de l'extrait, vitesse, hauteur), l'émotion et le texte. Une piste existante n'est jamais régénérée.
+3. **Assemblage ffmpeg** :
+   - 300 ms de silence entre répliques, 800 ms entre scènes ;
+   - fond musical optionnel (`audio.musique`) à faible volume, en boucle, coupé à la fin ;
+   - normalisation `loudnorm` ;
+   - sortie `data/episodes/epNN.mp3`.
+4. **Timings** `data/episodes/epNN.timings.json`, calculés à partir des durées des pistes et des silences :
+   ```json
+   {"episode": 1, "duree": 312.4, "segments": [
+     {"debut": 0.0, "fin": 2.1, "type": "narrateur", "texte": "Pain perdu."},
+     {"debut": 2.4, "fin": 5.0, "type": "replique", "scene": "sc_01", "index": 0,
+      "perso": "ines", "emotion": "content", "texte": "..."}
+   ]}
+   ```
+5. Le champ `audio` de l'épisode est rempli (§6.8), puis le modèle est libéré.
+
+### 19.7 Mémoire et verrou
+- `simulate`, `episode`, `run` et `audio` prennent le verrou `data/rushes.lock` (nom de la commande + PID).
+- Si un autre processus encore vivant le tient, la commande refuse de démarrer avec un message clair (« audio en cours (PID 1234) : relancez après »). Un verrou laissé par un processus mort est ignoré.
+- Le serveur web ne prend pas le verrou : il ne fait que lire.
+
+### 19.8 Rendu web (minimal)
+- Page épisode : chaque personnage est une pastille de couleur avec ses initiales. Un lecteur `<audio>` lit le mp3.
+- Pendant la lecture, l'événement `timeupdate` et les timings mettent en évidence la réplique en cours et font défiler le script. Un clic sur une réplique positionne la lecture.
+- Prévu pour de vrais avatars :
+  - chaque réplique est rendue avec `data-perso` et `data-emotion` ;
+  - une seule fonction JS `avatar(perso, emotion)` construit l'élément visuel : une pastille aujourd'hui, une image `static/avatars/<perso>/<emotion>.png` plus tard.
+
+---
+
+## 20. Machine unique et déploiement
+
+### 20.1 Matériel
+- **PC fixe Windows** : i5-9400 (6 cœurs), 8 Go de RAM, GTX 1050 (2 Go de VRAM), SSD 512 Go. Le vieux portable n'est plus utilisé.
+- Les LLM passent par API. La simulation et le serveur web sont légers.
+- Un modèle de clonage occupe plusieurs Go de RAM : il ne tourne jamais en même temps que la simulation (§19.7).
+- Windows est la cible principale. Le code reste compatible Linux. WSL2 sert de plan B si une bibliothèque refuse de s'installer sous Windows.
+- Python 3.11 ou plus pour le cœur. Kokoro exige Python < 3.13 : pour l'utiliser avec Python 3.13, il faut un venv en Python 3.12 ou WSL2.
+
+### 20.2 Scripts de lancement (`scripts/`)
+Ce sont des fichiers `.bat`, lançables par double-clic, sans réglage de la politique d'exécution PowerShell. Ils utilisent `.venv\Scripts\python.exe` s'il existe, sinon `python`. Une étape dont la commande n'existe pas encore (phase pas atteinte) est sautée avec un message.
+- `scripts\nuit.bat [jours] [provider]` : une nuit complète.
+  1. `simulate --jours <jours>` ;
+  2. `episode` ;
+  3. `audio` pour chaque épisode qui n'a pas encore son mp3.
+- `scripts\serveur.bat [port]` : l'interface web ouverte au réseau local (`serve --host 0.0.0.0`). Le script affiche l'adresse à taper sur le téléphone.
+
+### 20.3 Accès depuis un téléphone
+- Le téléphone et le PC doivent être sur le même Wi-Fi.
+- Lancer `scripts\serveur.bat`, puis ouvrir `http://<adresse IPv4 du PC>:8000` sur le téléphone (adresse affichée par le script, ou donnée par `ipconfig`).
+- Au premier lancement, Windows demande d'autoriser Python dans le pare-feu : cocher **réseau privé** uniquement.
+- Il n'y a pas de mot de passe : à utiliser seulement sur le réseau de la maison, jamais sur un Wi-Fi public, et sans ouvrir le port sur la box.
